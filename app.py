@@ -5,9 +5,9 @@ from tabulate import tabulate
 def get_grammar():
     st.sidebar.subheader("Enter Grammar Rules")
     grammar = {}
-    
+
     num_rules = st.sidebar.number_input("Number of rules", min_value=1, value=3, step=1)
-    
+
     for i in range(num_rules):
         rule = st.sidebar.text_input(f"Rule {i+1} (e.g., E -> E + T | T)", key=f"rule_{i}").strip()
         if rule and '->' in rule:
@@ -27,8 +27,8 @@ def augment_grammar(grammar):
         st.stop()
 
     start_symbol = next(iter(grammar))  # First non-terminal as the start symbol
-    augmented_grammar = {"S'": [[start_symbol]]}  
-    augmented_grammar.update(grammar)  
+    augmented_grammar = {"S'": [[start_symbol]]}
+    augmented_grammar.update(grammar)
     return augmented_grammar
 
 # Closure Function
@@ -41,7 +41,7 @@ def closure(items, grammar):
         for lhs, rhs, dot_pos in closure_set:
             if dot_pos < len(rhs):
                 symbol = rhs[dot_pos]
-                if symbol in grammar:  
+                if symbol in grammar:
                     for production in grammar[symbol]:
                         new_item = (symbol, tuple(production), 0)
                         if new_item not in closure_set:
@@ -65,13 +65,13 @@ def generate_lr0_items(augmented_grammar):
     initial_state = closure({initial_item}, augmented_grammar)
 
     states = [initial_state]
-    state_indices = {frozenset(initial_state): 0}  
+    state_indices = {frozenset(initial_state): 0}
     transitions = {}
-    queue = [initial_state]  
+    queue = [initial_state]
 
     while queue:
         state = queue.pop(0)
-        state_index = state_indices[frozenset(state)]  
+        state_index = state_indices[frozenset(state)]
         symbols = {rhs[pos] for lhs, rhs, pos in state if pos < len(rhs)}
 
         for symbol in symbols:
@@ -101,7 +101,7 @@ def compute_first(symbol, grammar, first):
             first[symbol].add("ε")
         else:
             for sub_symbol in production:
-                if not sub_symbol.isupper():  
+                if not sub_symbol.isupper():
                     first[symbol].add(sub_symbol)
                     break
                 else:
@@ -128,7 +128,7 @@ def compute_follow(symbol, grammar, first, follow, start_symbol):
         for rhs in rhs_list:
             for i, sub_symbol in enumerate(rhs):
                 if sub_symbol == symbol:
-                    if i + 1 < len(rhs):  
+                    if i + 1 < len(rhs):
                         next_symbol = rhs[i + 1]
                         if not next_symbol.isupper():
                             follow[symbol].add(next_symbol)
@@ -137,7 +137,7 @@ def compute_follow(symbol, grammar, first, follow, start_symbol):
                             follow[symbol].update(next_first)
                             if "ε" in first[next_symbol]:
                                 follow[symbol].update(compute_follow(lhs, grammar, first, follow, start_symbol))
-                    else:  
+                    else:
                         if lhs != symbol:
                             follow[symbol].update(compute_follow(lhs, grammar, first, follow, start_symbol))
 
@@ -190,13 +190,17 @@ for nt in grammar:
 slr1_parsing_table, goto_table = generate_slr1_parsing_table(states, transitions, grammar, first, follow)
 
 st.subheader("SLR(1) Parsing Table")
+
+# Extracting terminal and non-terminal symbols for correct headers
 terminals = sorted({symbol for row in slr1_parsing_table.values() for symbol in row})
 non_terminals = sorted({symbol for row in goto_table.values() for symbol in row})
 
 headers = ["State"] + terminals + ["|"] + non_terminals
+
+# Constructing the table with proper headers
 table = [[state] + 
          [slr1_parsing_table[state].get(t, "") for t in terminals] + ["|"] + 
          [goto_table[state].get(nt, "") for nt in non_terminals] 
          for state in slr1_parsing_table.keys()]
 
-st.table(table)  # Properly formatted table in Streamlit
+st.table(table)  # Display formatted table in Streamlit
