@@ -1,5 +1,5 @@
 import streamlit as st
-from tabulate import tabulate
+import pandas as pd
 
 # Streamlit App Title
 st.title("SLR(1) Parser Table Generator")
@@ -118,7 +118,7 @@ def compute_first(symbol):
 
     first[symbol] = set()
     for production in grammar.get(symbol, []):
-        if production == [""]:
+        if production == [""] or production == ["ε"]:
             first[symbol].add("ε")
         else:
             for sub_symbol in production:
@@ -194,20 +194,24 @@ def generate_slr1_parsing_table(states, transitions, grammar, first, follow):
 
 slr1_parsing_table, goto_table = generate_slr1_parsing_table(states, transitions, grammar, first, follow)
 
-# Display Parsing Table
+# Display SLR(1) Parsing Table
 def display_slr1_parsing_table(parsing_table, goto_table):
     terminals = sorted({symbol for row in parsing_table.values() for symbol in row})
     non_terminals = sorted({symbol for row in goto_table.values() for symbol in row})
 
     headers = ["State"] + terminals + ["|"] + non_terminals
-    table = []
+    table_data = []
 
     for state in parsing_table.keys():
         row = [state] + [parsing_table[state].get(t, "") for t in terminals] + ["|"] + [goto_table[state].get(nt, "") for nt in non_terminals]
-        table.append(row)
+        table_data.append(row)
 
+    # Convert to DataFrame
+    df = pd.DataFrame(table_data, columns=headers)
+
+    # Display Table
     st.subheader("SLR(1) Parsing Table")
-    st.text(tabulate(table, headers, tablefmt="grid"))
+    st.dataframe(df.style.set_properties(**{'text-align': 'center'}))
 
 # Call Display Function
 display_slr1_parsing_table(slr1_parsing_table, goto_table)
