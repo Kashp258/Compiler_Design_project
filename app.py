@@ -1,54 +1,35 @@
 import streamlit as st
-import pandas as pd
+from tabulate import tabulate
 
-# Streamlit App Title
-st.title("SLR(1) Parser Table Generator")
-
-# Sidebar for Grammar Input
-st.sidebar.header("Enter Grammar Rules")
-grammar_input = st.sidebar.text_area("Enter grammar rules (use '->' for production, '|' for multiple options)", 
-                                     "E -> E + T | T\nT -> T * F | F\nF -> ( E ) | id")
-st.sidebar.write("Example:\nS -> A B\nA -> a | ε\nB -> b")
-
-# Function to Parse Grammar
-def get_grammar(grammar_text):
+# Function to get grammar input from user
+def get_grammar():
+    st.sidebar.subheader("Enter Grammar Rules")
     grammar = {}
-    lines = grammar_text.strip().split("\n")
+    
+    num_rules = st.sidebar.number_input("Number of rules", min_value=1, value=3, step=1)
+    
+    for i in range(num_rules):
+        rule = st.sidebar.text_input(f"Rule {i+1} (e.g., E -> E + T | T)", key=f"rule_{i}").strip()
+        if rule and '->' in rule:
+            lhs, rhs = rule.split('->')
+            lhs = lhs.strip()
+            rhs_productions = [prod.strip().split() for prod in rhs.split('|')]
+            grammar[lhs] = grammar.get(lhs, []) + rhs_productions
+        elif rule:
+            st.sidebar.warning(f"Invalid format in rule {i+1}. Use '->' to separate LHS and RHS.")
 
-    for line in lines:
-        if '->' not in line:
-            st.sidebar.error(f"Invalid rule format: {line}. Use '->' to separate LHS and RHS.")
-            return None
+    return grammar if grammar else None  # Return None if empty
 
-        lhs, rhs = line.split('->')
-        lhs = lhs.strip()
-        rhs_productions = [prod.strip().split() for prod in rhs.split('|')]
-
-        if lhs in grammar:
-            grammar[lhs].extend(rhs_productions)
-        else:
-            grammar[lhs] = rhs_productions
-
-    return grammar
-
-# Get grammar from input
-grammar = get_grammar(grammar_input)
-if not grammar:
-    st.error("Please enter a valid grammar.")
-    st.stop()
-
-# Function to Augment Grammar
+# Augment Grammar
 def augment_grammar(grammar):
-    start_symbol = next(iter(grammar), None)
-    if not start_symbol:
-        st.error("Grammar is empty. Cannot augment.")
+    if not grammar:
+        st.error("No valid grammar rules provided. Please enter at least one rule.")
         st.stop()
 
-    augmented_grammar = {"S'": [[start_symbol]]}  # New start symbol
-    augmented_grammar.update(grammar)
+    start_symbol = next(iter(grammar))  # First non-terminal as the start symbol
+    augmented_grammar = {"S'": [[start_symbol]]}  
+    augmented_grammar.update(grammar)  
     return augmented_grammar
-
-augmented_grammar = augment_grammar(grammar)
 
 # Closure Function
 def closure(items, grammar):
@@ -60,7 +41,7 @@ def closure(items, grammar):
         for lhs, rhs, dot_pos in closure_set:
             if dot_pos < len(rhs):
                 symbol = rhs[dot_pos]
-                if symbol in grammar:
+                if symbol in grammar:  
                     for production in grammar[symbol]:
                         new_item = (symbol, tuple(production), 0)
                         if new_item not in closure_set:
@@ -79,18 +60,18 @@ def goto(items, symbol, grammar):
 
 # Generate LR(0) Items
 def generate_lr0_items(augmented_grammar):
-    start_symbol = next(iter(augmented_grammar))
+    start_symbol = next(iter(augmented_grammar))  
     initial_item = (start_symbol, tuple(augmented_grammar[start_symbol][0]), 0)
     initial_state = closure({initial_item}, augmented_grammar)
 
     states = [initial_state]
-    state_indices = {frozenset(initial_state): 0}
+    state_indices = {frozenset(initial_state): 0}  
     transitions = {}
+    queue = [initial_state]  
 
-    queue = [initial_state]
     while queue:
         state = queue.pop(0)
-        state_index = state_indices[frozenset(state)]
+        state_index = state_indices[frozenset(state)]  
         symbols = {rhs[pos] for lhs, rhs, pos in state if pos < len(rhs)}
 
         for symbol in symbols:
@@ -108,25 +89,23 @@ def generate_lr0_items(augmented_grammar):
 
     return states, transitions
 
-states, transitions = generate_lr0_items(augmented_grammar)
-
-# Compute FIRST Sets
-first = {}
-def compute_first(symbol):
+# Compute FIRST sets
+def compute_first(symbol, grammar, first):
     if symbol in first:
         return first[symbol]
 
     first[symbol] = set()
+
     for production in grammar.get(symbol, []):
-        if production == [""] or production == ["ε"]:
+        if production == [""]:
             first[symbol].add("ε")
         else:
             for sub_symbol in production:
-                if sub_symbol not in grammar:
+                if not sub_symbol.isupper():  
                     first[symbol].add(sub_symbol)
                     break
                 else:
-                    sub_first = compute_first(sub_symbol)
+                    sub_first = compute_first(sub_symbol, grammar, first)
                     first[symbol].update(sub_first - {"ε"})
                     if "ε" not in sub_first:
                         break
@@ -135,40 +114,34 @@ def compute_first(symbol):
 
     return first[symbol]
 
-for nt in grammar:
-    compute_first(nt)
-
-# Compute FOLLOW Sets
-follow = {}
-def compute_follow(symbol):
+# Compute FOLLOW sets
+def compute_follow(symbol, grammar, first, follow, start_symbol):
     if symbol in follow:
         return follow[symbol]
 
     follow[symbol] = set()
-    if symbol == next(iter(grammar)):  # Start symbol
-        follow[symbol].add("$")
+
+    if symbol == start_symbol:
+        follow[symbol].add("$")  
 
     for lhs, rhs_list in grammar.items():
         for rhs in rhs_list:
             for i, sub_symbol in enumerate(rhs):
                 if sub_symbol == symbol:
-                    if i + 1 < len(rhs):
+                    if i + 1 < len(rhs):  
                         next_symbol = rhs[i + 1]
-                        if next_symbol not in grammar:
+                        if not next_symbol.isupper():
                             follow[symbol].add(next_symbol)
                         else:
                             next_first = first[next_symbol] - {"ε"}
                             follow[symbol].update(next_first)
                             if "ε" in first[next_symbol]:
-                                follow[symbol].update(compute_follow(lhs))
-                    else:
+                                follow[symbol].update(compute_follow(lhs, grammar, first, follow, start_symbol))
+                    else:  
                         if lhs != symbol:
-                            follow[symbol].update(compute_follow(lhs))
+                            follow[symbol].update(compute_follow(lhs, grammar, first, follow, start_symbol))
 
     return follow[symbol]
-
-for nt in grammar:
-    compute_follow(nt)
 
 # Generate SLR(1) Parsing Table
 def generate_slr1_parsing_table(states, transitions, grammar, first, follow):
@@ -176,7 +149,7 @@ def generate_slr1_parsing_table(states, transitions, grammar, first, follow):
     goto_table = {state: {} for state in range(len(states))}
 
     for (state, symbol), next_state in transitions.items():
-        if symbol in grammar:
+        if symbol.isupper():
             goto_table[state][symbol] = next_state
         else:
             parsing_table[state][symbol] = f"S{next_state}"
@@ -192,26 +165,38 @@ def generate_slr1_parsing_table(states, transitions, grammar, first, follow):
 
     return parsing_table, goto_table
 
+# Streamlit UI
+st.title("SLR(1) Parser with Streamlit")
+
+grammar = get_grammar()
+if not grammar:
+    st.error("No valid grammar entered. Please enter at least one rule.")
+    st.stop()
+
+augmented_grammar = augment_grammar(grammar)
+
+states, transitions = generate_lr0_items(augmented_grammar)
+
+first = {}
+follow = {}
+
+start_symbol = next(iter(grammar))  
+for nt in grammar:
+    compute_first(nt, grammar, first)
+
+for nt in grammar:
+    compute_follow(nt, grammar, first, follow, start_symbol)
+
 slr1_parsing_table, goto_table = generate_slr1_parsing_table(states, transitions, grammar, first, follow)
 
-# Display SLR(1) Parsing Table
-def display_slr1_parsing_table(parsing_table, goto_table):
-    terminals = sorted({symbol for row in parsing_table.values() for symbol in row})
-    non_terminals = sorted({symbol for row in goto_table.values() for symbol in row})
+st.subheader("SLR(1) Parsing Table")
+terminals = sorted({symbol for row in slr1_parsing_table.values() for symbol in row})
+non_terminals = sorted({symbol for row in goto_table.values() for symbol in row})
 
-    headers = ["State"] + terminals + ["|"] + non_terminals
-    table_data = []
+headers = ["State"] + terminals + ["|"] + non_terminals
+table = [[state] + 
+         [slr1_parsing_table[state].get(t, "") for t in terminals] + ["|"] + 
+         [goto_table[state].get(nt, "") for nt in non_terminals] 
+         for state in slr1_parsing_table.keys()]
 
-    for state in parsing_table.keys():
-        row = [state] + [parsing_table[state].get(t, "") for t in terminals] + ["|"] + [goto_table[state].get(nt, "") for nt in non_terminals]
-        table_data.append(row)
-
-    # Convert to DataFrame
-    df = pd.DataFrame(table_data, columns=headers)
-
-    # Display Table
-    st.subheader("SLR(1) Parsing Table")
-    st.dataframe(df.style.set_properties(**{'text-align': 'center'}))
-
-# Call Display Function
-display_slr1_parsing_table(slr1_parsing_table, goto_table)
+st.table(table)  # Properly formatted table in Streamlit
