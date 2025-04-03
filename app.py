@@ -1,4 +1,5 @@
 import streamlit as st
+from tabulate import tabulate
 
 # Function to get grammar input from user
 def get_grammar():
@@ -25,7 +26,7 @@ def augment_grammar(grammar):
         st.error("No valid grammar rules provided. Please enter at least one rule.")
         st.stop()
 
-    start_symbol = next(iter(grammar))  
+    start_symbol = next(iter(grammar))  # First non-terminal as the start symbol
     augmented_grammar = {"S'": [[start_symbol]]}  
     augmented_grammar.update(grammar)  
     return augmented_grammar
@@ -189,21 +190,13 @@ for nt in grammar:
 slr1_parsing_table, goto_table = generate_slr1_parsing_table(states, transitions, grammar, first, follow)
 
 st.subheader("SLR(1) Parsing Table")
-
-# Extract terminals and non-terminals
 terminals = sorted({symbol for row in slr1_parsing_table.values() for symbol in row})
 non_terminals = sorted({symbol for row in goto_table.values() for symbol in row})
 
-# Updated headers: Grouped into ACTION (terminals) and GOTO (non-terminals)
-headers = ["State"] + ["[ACTION]"] + terminals + ["|"] + ["[GOTO]"] + non_terminals
+headers = ["State"] + terminals + ["|"] + non_terminals
+table = [[state] + 
+         [slr1_parsing_table[state].get(t, "") for t in terminals] + ["|"] + 
+         [goto_table[state].get(nt, "") for nt in non_terminals] 
+         for state in slr1_parsing_table.keys()]
 
-# Construct table rows with proper formatting
-table = [
-    [state, ""] +  
-    [slr1_parsing_table[state].get(t, "") for t in terminals] + ["|", ""] +  
-    [goto_table[state].get(nt, "") for nt in non_terminals]
-    for state in slr1_parsing_table.keys()
-]
-
-# Display table in Streamlit
-st.table(table)
+st.table(table)  # Properly formatted table in Streamlit
