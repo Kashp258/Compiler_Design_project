@@ -166,7 +166,7 @@ def generate_slr1_parsing_table(states, transitions, grammar, first, follow):
     return parsing_table, goto_table
 
 # Streamlit UI
-st.title("SLR(1) Parser with Streamlit")
+st.title("SLR(1) Parser")
 
 grammar = get_grammar()
 if not grammar:
@@ -191,16 +191,16 @@ slr1_parsing_table, goto_table = generate_slr1_parsing_table(states, transitions
 
 st.subheader("SLR(1) Parsing Table")
 
-# Extracting terminal and non-terminal symbols for correct headers
+# Extracting terminal and non-terminal symbols
 terminals = sorted({symbol for row in slr1_parsing_table.values() for symbol in row})
 non_terminals = sorted({symbol for row in goto_table.values() for symbol in row})
 
 headers = ["State"] + terminals + ["|"] + non_terminals
 
-# Constructing the table with proper headers
+# Constructing the table 
 table = [[state] + 
          [slr1_parsing_table[state].get(t, "") for t in terminals] + ["|"] + 
          [goto_table[state].get(nt, "") for nt in non_terminals] 
          for state in slr1_parsing_table.keys()]
 
-st.table(table)  # Display formatted table in Streamlit
+st.table(table)  
