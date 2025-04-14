@@ -35,8 +35,8 @@ This is a **Streamlit-based interactive web app** for building and visualizing a
 ### 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/slr1-parser-streamlit.git
-cd slr1-parser-streamlit
+git clone https://github.com/Kashp258/Compiler_Design_project.git
+cd Compiler_Design_project
 ```
 
 ### 2. Install dependencies:
@@ -55,7 +55,7 @@ streamlit run app.py
 
 ---
 
-## 📘 Example Grammar Format
+##  Example Grammar Format
 
 In the sidebar, enter grammar rules like:
 
@@ -80,7 +80,7 @@ This parser:
 
 ---
 
-## 🧪 Example Output
+##  Example Output
 
 Here’s a snippet of what you’ll see in the output parsing table:
 
@@ -91,7 +91,7 @@ Here’s a snippet of what you’ll see in the output parsing table:
 
 ---
 
-## 💡 Tips
+##  Tips
 
 - Non-terminals should be uppercase (e.g., `E`, `T`, `F`)
 - Terminals are lowercase or symbols (`+`, `*`, `id`, `(`, `)`)
